@@ -1,0 +1,26 @@
+{
+  "name": "movie",
+  "version": "1.0.0",
+  "main": "scraper.js",
+  "type": "module",
+  "scripts": {
+    "start": "node scraper.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samjay8495/movie-scraper.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/samjay8495/movie-scraper/issues"
+  },
+  "homepage": "https://github.com/samjay8495/movie-scraper#readme",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12",
+    "@supabase/supabase-js": "^2.0.0"
+  }
+}
