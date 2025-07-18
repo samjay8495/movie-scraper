@@ -1,3 +1,5 @@
+// Updated scraper.js to also scrape poster, starcast, language, length
+
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { createClient } from '@supabase/supabase-js';
@@ -18,41 +20,62 @@ const categories = [
   }
 ];
 
+async function scrapeMovieDetails(movieUrl) {
+  try {
+    const res = await axios.get(movieUrl);
+    const $ = cheerio.load(res.data);
+
+    const poster = $('div.mov_img img').attr('src') || null;
+    const details = $('div.mov_info').text();
+
+    const starcastMatch = details.match(/Starcast:\s*(.*?)\n/i);
+    const languageMatch = details.match(/Language:\s*(.*?)\n/i);
+    const lengthMatch = details.match(/Length:\s*(.*?)\n/i);
+
+    return {
+      poster,
+      starcast: starcastMatch ? starcastMatch[1].trim() : null,
+      language: languageMatch ? languageMatch[1].trim() : null,
+      length: lengthMatch ? lengthMatch[1].trim() : null
+    };
+  } catch (err) {
+    console.error('❌ Failed to scrape movie details from', movieUrl);
+    return {};
+  }
+}
+
 async function scrapeCategory({ url, table }) {
   try {
     const res = await axios.get(url);
     const $ = cheerio.load(res.data);
     const movies = [];
 
-    $('div.filmyvideo > a').each((_, el) => {
+    const movieElements = $('div.filmyvideo > a');
+
+    for (let i = 0; i < movieElements.length; i++) {
+      const el = movieElements[i];
       const name = $(el).text().trim();
       const link = $(el).attr('href');
-      if (!name || !link) return;
-      movies.push({ name, link });
-    });
 
-    console.log(`[${table}] Scraped movies count: ${movies.length}`);
-    if (movies.length === 0) {
-      console.warn(`[${table}] No movies found! Possible selector issue.`);
-      return;
+      if (!name || !link) continue;
+
+      const fullLink = link.startsWith('http') ? link : `https://www.filmyzilla15.com${link}`;
+      const details = await scrapeMovieDetails(fullLink);
+
+      movies.push({ name, link: fullLink, ...details });
     }
 
-    const { data, error } = await supabase.from(table).upsert(movies, {
-      onConflict: ['link']
-    });
-
-    if (error) {
-      console.error(`[${table}] ❌ Supabase error:`, error.message);
-    } else {
-      console.log(`[${table}] ✅ Inserted/Updated: ${data?.length || movies.length}`);
+    for (const movie of movies) {
+      const { error } = await supabase.from(table).upsert(movie, { onConflict: 'link' });
+      if (error) console.error(`[${table}] ❌ Supabase error:`, error.message);
     }
+
+    console.log(`[${table}] ✅ Scraped movies count: ${movies.length}`);
   } catch (err) {
-    console.error(`❌ Error fetching ${table}:`, err.message);
+    console.error(`[${table}] ❌ Error:`, err.message);
   }
 }
 
-(async () => {
-  for (const category of categories) {
-    await scrapeCategory(category);
-  }
-})();
+for (const category of categories) {
+  scrapeCategory(category);
+}
