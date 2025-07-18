@@ -1,8 +1,11 @@
 import axios from 'axios';
-import * as cheerio from 'cheerio'; // ✅ correct in ESM
+import * as cheerio from 'cheerio';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient('https://laoxhbwlixoezqxpmdjm.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxhb3hoYndsaXhvZXpxeHBtZGptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI3OTM0NzEsImV4cCI6MjA2ODM2OTQ3MX0.DDsco5AyMoF7RT90t_LauxPYPGYkCg6_JEj-XvxClT8');
+const supabase = createClient(
+  'https://laoxhbwlixoezqxpmdjm.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxhb3hoYndsaXhvZXpxeHBtZGptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI3OTM0NzEsImV4cCI6MjA2ODM2OTQ3MX0.DDsco5AyMoF7RT90t_LauxPYPGYkCg6_JEj-XvxClT8'
+);
 
 const categories = [
   {
@@ -28,16 +31,28 @@ async function scrapeCategory({ url, table }) {
       movies.push({ name, link });
     });
 
-    for (const movie of movies) {
-      await supabase.from(table).upsert(movie, { onConflict: 'link' });
+    console.log(`[${table}] Scraped movies count: ${movies.length}`);
+    if (movies.length === 0) {
+      console.warn(`[${table}] No movies found! Possible selector issue.`);
+      return;
     }
 
-    console.log(`✅ Updated: ${table}`);
+    const { data, error } = await supabase.from(table).upsert(movies, {
+      onConflict: ['link']
+    });
+
+    if (error) {
+      console.error(`[${table}] ❌ Supabase error:`, error.message);
+    } else {
+      console.log(`[${table}] ✅ Inserted/Updated: ${data?.length || movies.length}`);
+    }
   } catch (err) {
-    console.error(`❌ Error: ${table}`, err.message);
+    console.error(`❌ Error fetching ${table}:`, err.message);
   }
 }
 
-for (const category of categories) {
-  scrapeCategory(category);
-}
+(async () => {
+  for (const category of categories) {
+    await scrapeCategory(category);
+  }
+})();
